@@ -138,6 +138,50 @@ class CollaborativeRecommender:
         ]
         return pd.DataFrame(result)
 
+    def recommend_with_scores(
+        self,
+        user_id: int,
+        top_n: int = 10,
+        movies_path: str = "data/raw/movies.csv",
+    ) -> pd.DataFrame:
+        """Recommend top-N movies for user and return movie titles and scores."""
+        self._ensure_trained()
+
+        user_idx = self._get_user_index(user_id)
+        titles = self._load_movie_titles(movies_path)
+        
+        if user_idx is None:
+            # Popular items fallback
+            result = [
+                {
+                    "movieId": int(self.movie_map_inv[i]),
+                    "title": titles.get(self.movie_map_inv[i], "Unknown"),
+                    "score": float(len(self.popular_items) - idx),
+                }
+                for idx, i in enumerate(self.popular_items[:top_n])
+            ]
+            return pd.DataFrame(result)
+
+        user_vector = self.user_factors[user_idx]
+        scores = self.item_factors.dot(user_vector)
+
+        user_interactions = self.train_matrix[user_idx].toarray().ravel()
+        unseen_mask = user_interactions == 0
+        candidate_indices = np.where(unseen_mask)[0]
+
+        sorted_indices = candidate_indices[np.argsort(scores[candidate_indices])[::-1]]
+        top_indices = sorted_indices[:top_n]
+        
+        result = [
+            {
+                "movieId": int(self.movie_map_inv[idx]),
+                "title": titles.get(self.movie_map_inv[idx], "Unknown"),
+                "score": float(scores[idx]),
+            }
+            for idx in top_indices
+        ]
+        return pd.DataFrame(result)
+
     def _load_movie_titles(self, movies_path: str) -> Dict[int, str]:
         movies = pd.read_csv(movies_path)
         mid_col = next((c for c in ("movieId", "movie_id", "id") if c in movies.columns), None)

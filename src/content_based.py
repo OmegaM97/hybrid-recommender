@@ -213,12 +213,6 @@ class ContentBasedRecommender:
 if __name__ == "__main__":
     recommender = ContentBasedRecommender()
     recommender.fit()
-    
-    # Example: Recommend similar movies to a given title
-    print("=== Title-based recommendation ===")
-    print(recommender.recommend_similar_movies("avengers", top_n=5))
-    
-    # Example: Recommend movies for a user based on their high-rated movies
     print("\n=== User-based recommendation (content-based) ===")
     try:
         user_recs = recommender.recommend_for_user(user_id=3, top_n=10, rating_threshold=4.5)
