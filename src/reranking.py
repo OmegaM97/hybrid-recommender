@@ -29,13 +29,10 @@ def mmr_rerank(
     """
     if hybrid_recs.empty:
         return hybrid_recs
-
-    # Extract required columns
     scores_dict = hybrid_recs.set_index("movieId")["score"].to_dict()
     titles_dict = hybrid_recs.set_index("movieId")["title"].to_dict()
     candidate_ids = list(scores_dict.keys())
 
-    # Normalize scores to 0-1 for stability against similarity bounds
     raw_scores = np.array(list(scores_dict.values()))
     min_s = raw_scores.min()
     max_s = raw_scores.max()
@@ -49,7 +46,6 @@ def mmr_rerank(
 
     selected_ids = []
     
-    # Fast path if top_n >= candidates length
     limit = min(top_n, len(candidate_ids))
 
     while len(selected_ids) < limit and candidate_ids:
@@ -59,7 +55,6 @@ def mmr_rerank(
         for cand_id in candidate_ids:
             score_rel = normalized_score(cand_id)
             
-            # Compute diversity penalty
             if not selected_ids:
                 penalty = 0.0
             else:
@@ -83,11 +78,9 @@ def mmr_rerank(
                 best_mmr = mmr_score
                 best_item = cand_id
                 
-        # Move best_item from candidates to selected
         selected_ids.append(best_item)
         candidate_ids.remove(best_item)
 
-    # Rebuild output DataFrame
     result = []
     for mid in selected_ids:
         result.append({
@@ -107,8 +100,6 @@ if __name__ == "__main__":
     recommender.fit()
     
     user_id = 3
-    
-    # 1. Get a larger pool of hybrid recommendations
     initial_recs = recommender.recommend_for_user(user_id=user_id, top_n=30)
     print("\n--- Original Top 10 Hybrid Recommendations ---")
     print(initial_recs.head(10).to_string(index=False))
@@ -120,7 +111,6 @@ if __name__ == "__main__":
         for idx, mid in enumerate(recommender.cb_recommender.data["movieId"])
     }
     
-    # 3. Apply MMR
     diverse_recs = mmr_rerank(
         hybrid_recs=initial_recs,
         similarity_matrix=sim_matrix,

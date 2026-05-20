@@ -31,9 +31,7 @@ class HybridRecommender:
 
     def fit(self) -> None:
         """Ensures both underlying recommenders are trained or loaded."""
-        # Content model fit
         self.cb_recommender.fit(reload_data=False)
-        # Collab model fit
         self.cf_recommender.fit(save_artifacts=False)
 
     def recommend_for_user(
@@ -46,22 +44,17 @@ class HybridRecommender:
         """
         Produce a list of top-N movie recommendations by blending CF and CB models.
         """
-        # Ensure data is loaded
         if self.cb_recommender.ratings.empty:
             self.cb_recommender.load_ratings()
 
-        # 1. Cold start check
         user_ratings = self.cb_recommender.ratings[self.cb_recommender.ratings["userId"] == user_id]
         if len(user_ratings) < min_ratings:
-            # Fall back directly to popular items handled inside collaborative recommender
             return self.cf_recommender.recommend_with_scores(
                 user_id=user_id,
                 top_n=top_n,
                 movies_path=movies_path
             )
 
-        # 2. Get recommendations from both models
-        # Fetch a large candidate pool to intersect, 2000 is plenty enough to cover top intersections
         pool_size = 2000
         
         try:
@@ -71,7 +64,6 @@ class HybridRecommender:
                 rating_threshold=4.0
             ) 
         except ValueError:
-            # E.g. No ratings >= 4.0, default to collaborative
             return self.cf_recommender.recommend_with_scores(
                 user_id=user_id,
                 top_n=top_n,
@@ -84,7 +76,6 @@ class HybridRecommender:
             movies_path=movies_path
         )
 
-        # 3. Normalize both score sets using Min-Max scaling
         def min_max_scale(series: pd.Series) -> pd.Series:
             s_min = series.min()
             s_max = series.max()
@@ -102,7 +93,6 @@ class HybridRecommender:
         else:
             cf_recs["score"] = pd.Series(dtype=float)
 
-        # 4. Outer join the items on movieId
         cb_subset = cb_recs[["movieId", "title", "score"]].rename(columns={"score": "cb_score", "title": "cb_title"})
         cf_subset = cf_recs[["movieId", "title", "score"]].rename(columns={"score": "cf_score", "title": "cf_title"})
 
@@ -116,18 +106,13 @@ class HybridRecommender:
         hybrid_df["title"] = hybrid_df["cb_title"].combine_first(hybrid_df["cf_title"])
         hybrid_df = hybrid_df.drop(columns=["cb_title", "cf_title"]).fillna(0.0)
 
-        # 5. Combine using weighted sum
         hybrid_df["score"] = (
             hybrid_df["cb_score"] * self.cb_weight +
             hybrid_df["cf_score"] * self.cf_weight
         )
 
-        # 6. Seen movies are naturally filtered out by underlying recommenders
-
-        # 7. Sort and take top N
         hybrid_df = hybrid_df.sort_values(by="score", ascending=False).head(top_n)
 
-        # Return standardized columns
         return hybrid_df[["movieId", "title", "score"]].reset_index(drop=True)
 
 

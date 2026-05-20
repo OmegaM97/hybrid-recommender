@@ -142,8 +142,6 @@ class ContentBasedRecommender:
         
         if self.ratings.empty:
             self.load_ratings()
-
-        # Find movies the user rated highly
         user_ratings = self.ratings[self.ratings["userId"] == user_id]
         if user_ratings.empty:
             raise ValueError(f"User {user_id} not found in ratings data")
@@ -160,7 +158,6 @@ class ContentBasedRecommender:
             ascending=False
         ).head(5)
 
-        # Map movie IDs to indices in self.data
         movie_id_to_idx = {int(mid): idx for idx, mid in enumerate(self.data["movieId"])}
         
         weighted_similarity = np.zeros(len(self.data))
@@ -185,15 +182,12 @@ class ContentBasedRecommender:
 
         avg_similarity = weighted_similarity / total_weight
 
-        # Get all movies the user has seen (rated)
         seen_movie_ids = set(user_ratings["movieId"].unique())
         seen_indices = {
             idx
             for idx, mid in enumerate(self.data["movieId"])
             if int(mid) in seen_movie_ids
         }
-
-        # Filter to unseen movies and sort
         unseen_scores = [
             (idx, score)
             for idx, score in enumerate(avg_similarity)
@@ -201,7 +195,6 @@ class ContentBasedRecommender:
         ]
         unseen_scores.sort(key=lambda x: x[1], reverse=True)
 
-        # Get top-N
         top_indices = [idx for idx, _ in unseen_scores[:top_n]]
         top_scores = [score for _, score in unseen_scores[:top_n]]
 
