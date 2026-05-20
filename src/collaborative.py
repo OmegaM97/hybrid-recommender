@@ -151,8 +151,8 @@ if __name__ == "__main__":
     recommender = CollaborativeRecommender()
     recommender.fit()
 
-    user_id = 4
+    user_id = 3
     recs = recommender.recommend_with_titles(user_id, top_n=10)
 
-    print(f"Recommendations for user {user_id}:")
+    print(f"=== Collaborative Recommendations for user {user_id} ===")
     print(recs.to_string(index=False))
